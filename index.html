@@ -1,0 +1,406 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FastAPI Authentication Demo</title>
+
+  <!-- React via CDN -->
+  <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f3f6fa;
+      color: #182536;
+    }
+
+    header {
+      background: #153b65;
+      color: white;
+      padding: 22px;
+      text-align: center;
+    }
+
+    header h2 { margin: 0 0 6px; }
+    header p { margin: 0; opacity: 0.8; }
+
+    .container {
+      max-width: 460px;
+      margin: 40px auto;
+      padding: 0 15px;
+    }
+
+    .card {
+      background: white;
+      padding: 28px;
+      border-radius: 14px;
+      box-shadow: 0 5px 25px #152b4514;
+    }
+
+    h3 { margin-top: 0; }
+
+    input {
+      width: 100%;
+      padding: 13px;
+      margin: 9px 0;
+      border: 1px solid #ccd5e0;
+      border-radius: 7px;
+      font-size: 15px;
+    }
+
+    button {
+      padding: 12px 16px;
+      background: #165da6;
+      color: white;
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    button:hover { background: #104a85; }
+    button:disabled { opacity: 0.5; cursor: wait; }
+
+    .full { width: 100%; margin-top: 12px; }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .tabs button { flex: 1; }
+
+    .secondary { background: #6b7785; }
+    .secondary:hover { background: #56616e; }
+
+    .message {
+      padding: 12px;
+      margin-top: 16px;
+      border-radius: 7px;
+      background: #edf3ff;
+      overflow-wrap: anywhere;
+    }
+
+    .error {
+      background: #ffebeb;
+      color: #a22121;
+    }
+
+    .success {
+      background: #e5f6ec;
+      color: #17633b;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      background: #f0f3f7;
+      padding: 13px;
+      border-radius: 7px;
+      font-size: 12px;
+    }
+
+    .token {
+      max-height: 130px;
+      overflow: auto;
+    }
+
+    .help {
+      font-size: 13px;
+      color: #657489;
+      line-height: 1.6;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .actions button { flex: 1; }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h2>FastAPI + React Authentication</h2>
+    <p>JWT | Register | Login | Protected API | CORS</p>
+  </header>
+
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    const API = "http://127.0.0.1:8000";
+
+    function App() {
+      const [page, setPage] = useState("login");
+      const [username, setUsername] = useState("");
+      const [password, setPassword] = useState("");
+      const [token, setToken] = useState("");
+      const [profile, setProfile] = useState(null);
+      const [message, setMessage] = useState("");
+      const [error, setError] = useState(false);
+      const [loading, setLoading] = useState(false);
+
+      function notify(text, isError = false) {
+        setMessage(text);
+        setError(isError);
+      }
+
+      // REGISTER API
+      async function register(e) {
+        e.preventDefault();
+        setLoading(true);
+
+        try {
+          const response = await fetch(`${API}/register`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ username, password })
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(JSON.stringify(data.detail));
+          }
+
+          setPage("login");
+          setPassword("");
+          notify("Registration successful. Please login.");
+        } catch (err) {
+          notify(err.message, true);
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      // LOGIN API
+      async function login(e) {
+        e.preventDefault();
+        setLoading(true);
+
+        try {
+          const form = new URLSearchParams();
+          form.append("username", username);
+          form.append("password", password);
+
+          const response = await fetch(`${API}/login`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded"
+            },
+            body: form
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(JSON.stringify(data.detail));
+          }
+
+          setToken(data.access_token);
+          setPassword("");
+          setPage("dashboard");
+          notify("Login successful. JWT received.");
+        } catch (err) {
+          notify(err.message, true);
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      // PROTECTED API
+      async function getProfile() {
+        setLoading(true);
+
+        try {
+          const response = await fetch(`${API}/me`, {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(JSON.stringify(data.detail));
+          }
+
+          setProfile(data);
+          notify("Protected API accessed successfully.");
+        } catch (err) {
+          notify(err.message, true);
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      // PUBLIC API / CORS DEMO
+      async function testCors() {
+        setLoading(true);
+
+        try {
+          const response = await fetch(`${API}/public`);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const data = await response.json();
+          notify(`Public API response: ${data.message}`);
+        } catch (err) {
+          notify(`Network or CORS error: ${err.message}`, true);
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      // LOGOUT
+      function logout() {
+        setToken("");
+        setProfile(null);
+        setUsername("");
+        setPassword("");
+        setPage("login");
+        notify("Logged out successfully.");
+      }
+
+      return (
+        <div className="container">
+          <div className="card">
+
+            {page !== "dashboard" && (
+              <>
+                <div className="tabs">
+                  <button
+                    className={page === "login" ? "" : "secondary"}
+                    onClick={() => {
+                      setPage("login");
+                      setMessage("");
+                    }}
+                  >
+                    Login
+                  </button>
+
+                  <button
+                    className={page === "register" ? "" : "secondary"}
+                    onClick={() => {
+                      setPage("register");
+                      setMessage("");
+                    }}
+                  >
+                    Register
+                  </button>
+                </div>
+
+                <h3>
+                  {page === "register" ? "Create Account" : "Welcome Back"}
+                </h3>
+
+                <form onSubmit={page === "register" ? register : login}>
+                  <input
+                    type="text"
+                    placeholder="Username"
+                    value={username}
+                    onChange={e => setUsername(e.target.value)}
+                    required
+                    minLength={3}
+                  />
+
+                  <input
+                    type="password"
+                    placeholder="Password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    required
+                    minLength={page === "register" ? 8 : undefined}
+                  />
+
+                  <button className="full" disabled={loading}>
+                    {loading ? "Processing..." :
+                     page === "register" ? "Register" : "Login"}
+                  </button>
+                </form>
+              </>
+            )}
+
+            {page === "dashboard" && (
+              <>
+                <h3>Authentication Dashboard</h3>
+                <p>Welcome, <b>{username}</b>!</p>
+
+                <p className="help">
+                  JWT access token (stored in React memory):
+                </p>
+
+                <pre className="token">{token}</pre>
+
+                <div className="actions">
+                  <button onClick={getProfile} disabled={loading}>
+                    Get My Profile
+                  </button>
+
+                  <button onClick={logout} className="secondary">
+                    Logout
+                  </button>
+                </div>
+
+                {profile && (
+                  <>
+                    <h4>Protected API Response</h4>
+                    <pre>{JSON.stringify(profile, null, 2)}</pre>
+                  </>
+                )}
+              </>
+            )}
+
+            {message && (
+              <div className={`message ${error ? "error" : "success"}`}>
+                {message}
+              </div>
+            )}
+
+            <hr style={{marginTop: 25, border: "1px solid #eee"}} />
+
+            <h4>CORS Demonstration</h4>
+            <p className="help">
+              Click below to call the public FastAPI endpoint
+              from this React frontend.
+            </p>
+
+            <button
+              className="full secondary"
+              onClick={testCors}
+              disabled={loading}
+            >
+              Test Public API / CORS
+            </button>
+
+            <p className="help">
+              Frontend: http://localhost:5500
+              <br />
+              Backend: http://127.0.0.1:8000
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(
+      document.getElementById("root")
+    ).render(<App />);
+  </script>
+</body>
+</html>
